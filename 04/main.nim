@@ -1,5 +1,8 @@
+import math
 import sequtils
+import sets
 import strutils
+import sugar
 
 const size = 5
 
@@ -12,29 +15,33 @@ let players = countup(2, lines.len - 1, size + 1).toSeq.mapIt(
   .mapIt(it.splitWhitespace.map(parseInt))
 )
 
+template transposed(a: untyped): untyped =
+  toSeq(0..<a[0].len).map(
+    (row) => toSeq(0..<a.len).map(
+      (col) => player[col][row]
+    )
+  )
+
+proc findWinningRoundForRows(player: seq[seq[int]]): int =
+  player
+  .mapIt(it.mapIt(drawn.find(it)))
+  .filterIt(not it.contains(-1))
+  .mapIt(it.max)
+  .min
+
 proc findWinningRound(player: seq[seq[int]]): int =
-  var markedRows: array[0..size, uint8]
-  var markedCols: array[0..size, uint8]
-  for round, n in drawn:
-    for r, row in player:
-      for c, guess in row:
-        if guess == n:
-          markedRows[r] += 1
-          markedCols[c] += 1
-          if markedRows[r] == size or markedCols[c] == size:
-            return round
-  return drawn.len
+  min(
+    findWinningRoundForRows(player),
+    findWinningRoundForRows(player.transposed))
 
 let winningRounds = players.map(findWinningRound)
 
 template winningResultFor(winnigOp: untyped): int =
   let winningPlayer = winnigOp(winningRounds)
   let winningRound = winningRounds[winningPlayer]
-  var result = 0
-  for row in players[winningPlayer]:
-    for guess in row:
-      if not drawn[0..winningRound].contains(guess):
-        result += guess
+  let drawnSet = drawn[0..winningRound].toHashSet
+  let result = players[winningPlayer].foldl(
+    a + b.filterIt(it notin drawnSet).sum, 0)
   result * drawn[winningRound]
 
 echo "Part1: ", winningResultFor(minIndex)
