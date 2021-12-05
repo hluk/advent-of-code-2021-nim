@@ -1,5 +1,5 @@
 import math
-import strutils
+import strscans
 import sequtils
 import tables
 
@@ -18,11 +18,7 @@ template countOverlaps(vents: untyped): int =
   newCountTable(points).values.toSeq.filterIt(it >= 2).len
 
 let vents = stdin.lines.toSeq.mapIt(
-  it.splitWhitespace
-).mapIt(
-  (it[0].split(',').map(parseInt), it[2].split(',').map(parseInt))
-).mapIt(
-  (x1: it[0][0], y1: it[0][1], x2: it[1][0], y2: it[1][1])
+  cast[tuple[ok: bool, x1, y1, x2, y2: int]](scanTuple(it, "$i,$i -> $i,$i"))
 )
 
 let vents1 = vents.filterIt(it.x1 == it.x2 or it.y1 == it.y2)
