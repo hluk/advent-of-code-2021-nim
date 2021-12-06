@@ -1,4 +1,3 @@
-import algorithm
 import math
 import sequtils
 import strutils
@@ -8,15 +7,13 @@ type Timers = array[0..8, int]
 proc run*(timers: Timers, days: int): int =
   var ts = timers
   for i in 0..<days:
-    ts.rotateLeft(1)
-    ts[6] += ts[8]
+    ts[(i + 7) mod 9] += ts[i mod 9]
   ts.sum
 
 proc parseTimers*(filename: string): Timers =
-  let lines = filename.readLines(1)
-  let timers = lines[0].split(",").map(parseInt)
-  for t in timers:
-    result[t] += 1
+  let timers = filename.readFile.strip.split(",")
+  result = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+  result.applyIt(timers.count(it.intToStr))
 
 if isMainModule:
   let timers = parseTimers("input")
