@@ -19,7 +19,8 @@ proc align2*(crabs: Crabs, pos: int): int =
   crabs.mapIt(sumUpTo(abs(it - pos))).sum
 
 proc minFuelAlign2*(crabs: Crabs): int =
-  toSeq(min(crabs)..max(crabs)).mapIt(crabs.align2(it)).min
+  let mean = crabs.sum / crabs.len
+  {mean.floor.int, mean.ceil.int}.mapIt(crabs.align2(it)).min
 
 proc parseCrabs*(filename: string): Crabs =
   filename.readFile.strip.split(",").map(parseInt)
