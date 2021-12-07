@@ -13,11 +13,11 @@ suite "day 6":
     let crabs = parseCrabs("test1")
     check crabs.minFuelAlign == 37
 
-  test "sumUpTo":
-    check sumUpTo(1) == 1
-    check sumUpTo(2) == 3
-    check sumUpTo(4) == 10
-    check sumUpTo(11) == 66
+  test "sumUpTo2":
+    check sumUpTo2(1) == 1*2
+    check sumUpTo2(2) == 3*2
+    check sumUpTo2(4) == 10*2
+    check sumUpTo2(11) == 66*2
 
   test "align2":
     let crabs = parseCrabs("test1")

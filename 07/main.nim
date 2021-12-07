@@ -6,17 +6,17 @@ import strutils
 type Crabs = seq[int]
 
 proc align*(crabs: Crabs, pos: int): int =
-  crabs.mapIt(abs(it - pos)).sum
+  crabs.foldl(abs(b - pos) + a, 0)
 
 proc minFuelAlign*(crabs: Crabs): int =
   let mid = crabs.sorted[crabs.len div 2]
   crabs.align(mid)
 
-proc sumUpTo*(a: int): int =
-  (a + 1) * a div 2
+proc sumUpTo2*(a: int): int =
+  (a + 1) * a
 
 proc align2*(crabs: Crabs, pos: int): int =
-  crabs.mapIt(sumUpTo(abs(it - pos))).sum
+  crabs.foldl(sumUpTo2(abs(b - pos)) + a, 0) div 2
 
 proc minFuelAlign2*(crabs: Crabs): int =
   let mean = crabs.sum / crabs.len
