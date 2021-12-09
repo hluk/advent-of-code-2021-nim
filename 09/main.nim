@@ -1,84 +1,63 @@
+import algorithm
 import math
 import sequtils
 import tables
 
+type Pos = (int, int)
 type HeightMap = seq[seq[int]]
-type Pos = tuple[row: int, col: int]
+
+proc `+`(pos: Pos, d: (int, int)): Pos =
+  (pos[0] + d[0], pos[1] + d[1])
+
+proc `[]`(hm: HeightMap, pos: Pos): int =
+  hm[pos[0]][pos[1]]
+
+proc `[]=`(hm: var HeightMap, pos: Pos, value: int): void =
+  hm[pos[0]][pos[1]] = value
 
 proc parseHeightMap*(filename: string): HeightMap =
-  filename.lines.toSeq.mapIt(it.mapIt(it.ord - '0'.ord))
+  var hm = filename.lines.toSeq.mapIt(9 & it.mapIt(it.ord - '0'.ord) & 9)
+  let cols = hm[0].len
+  newSeqWith[int](cols, 9) & hm & newSeqWith[int](cols, 9)
 
-proc riskLevel*(hm: HeightMap, positions: seq[Pos]): int =
-  positions.foldl(hm[b.row][b.col] + 1 + a, 0)
+proc isLow(hm: HeightMap, pos: Pos): bool =
+  let x = hm[pos]
+  [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
+  .allIt(x < hm[pos + it])
 
-proc lowPositions*(hm: HeightMap): seq[Pos] =
+proc coords*(hm: HeightMap): seq[Pos] =
   let rows = hm.len
   let cols = hm[0].len
-  for r, row in hm:
-    for c, col in row:
-      let x = hm[r][c]
-      if r > 0:
-        if c > 0 and x >= hm[r-1][c-1]:
-          continue
-        if x >= hm[r-1][c]:
-          continue
-        if c + 1 < cols and x >= hm[r-1][c+1]:
-          continue
+  [toSeq(1..rows-2), toSeq(1..cols-2)].product
+  .mapIt((it[0], it[1]))
+  .filterIt(hm[it] != 9)
+  .sorted
 
-      if c > 0 and x >= hm[r][c-1]:
-        continue
-      if c + 1 < cols and x >= hm[r][c+1]:
-        continue
-
-      if r + 1 < rows:
-        if c > 0 and x >= hm[r+1][c-1]:
-          continue
-        if x >= hm[r+1][c]:
-          continue
-        if c + 1 < cols and x >= hm[r+1][c+1]:
-          continue
-
-      result.add((r, c))
+proc riskLevel*(hm: HeightMap): int =
+  let lows = hm.coords
+  .filterIt(hm.isLow(it))
+  .mapIt(hm[it])
+  lows.sum + lows.len
 
 proc largestBasins*(hm: var HeightMap): int =
   let rows = hm.len
-  let cols = hm[0].len
-
   var avail = 10
+  let coords = hm.coords
   for i in 0..rows.float.sqrt.int:
-    for r, row in hm:
-      for c, col in row:
-        let x = hm[r][c]
-        if x == 9:
-          continue
-
-        var ns: seq[int]
-        if r > 0:
-          ns.add(hm[r-1][c])
-
-        if c > 0:
-          ns.add(hm[r][c-1])
-        if c + 1 < cols:
-          ns.add(hm[r][c+1])
-
-        if r + 1 < rows:
-          ns.add(hm[r+1][c])
-
-        let m = max(ns)
-        if 0 <= m and m <= 9:
-          hm[r][c] = avail
+    for pos in coords:
+        let m = [(-1,0),(0,-1),(0,1),(1,0)].mapIt(hm[pos + it]).max
+        if m <= 9:
+          hm[pos] = avail
           inc avail
         else:
-          hm[r][c] = m
+          hm[pos] = m
 
   var c = hm.concat.toCountTable
   c.del(9)
   c.sort
-  let sizes = c.values.toSeq
-  sizes[0..2].foldl(a * b, 1)
-
+  c.values.toSeq[0..2].foldl(a * b, 1)
 
 if isMainModule:
   var hm = "input".parseHeightMap
-  echo "Part1: ", riskLevel(hm, hm.lowPositions)
+  echo "Part1: ", hm.riskLevel
   echo "Part1: ", hm.largestBasins
