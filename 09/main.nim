@@ -1,59 +1,52 @@
 import algorithm
-import math
-import sequtils
 import tables
+import zero_functional
 
-type Pos = tuple[row: int, col: int]
-type HeightMap = TableRef[Pos, int]
+type Pos = tuple[row: int8, col: int8]
+type HeightMap = TableRef[Pos, uint16]
 
 proc parseHeightMap*(filename: string): HeightMap =
-  var hm = filename.lines.toSeq.mapIt(it.mapIt(it.ord - '0'.ord))
+  var hm = filename.lines --> map(it --> map(it.ord - '0'.ord))
   let rows = hm.len
   let cols = hm[0].len
-  [toSeq(0..rows-1), toSeq(0..cols-1)].product
-  .filterIt(hm[it[0]][it[1]] != 9)
-  .mapIt(((it[0], it[1]), hm[it[0]][it[1]]))
-  .newTable
+  (0..<rows) --> combinations(0..<cols)
+    .filter(hm[it[0]][it[1]] != 9)
+    .map(((it[0].int8, it[1].int8), hm[it[0]][it[1]].uint16))
+    .newTable
 
 proc `+`(pos: Pos, d: (int, int)): Pos =
-  (pos.row + d[0], pos.col + d[1])
+  (pos.row + d[0].int8, pos.col + d[1].int8)
 
-proc `[]`(hm: HeightMap, pos: Pos): int =
-  hm.getOrDefault(pos, 9)
+proc `[]`(hm: HeightMap, pos: Pos): uint16 =
+  hm.getOrDefault(pos, 9u16)
 
-proc isLow(hm: HeightMap, pos: Pos, x: int): bool =
-  [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
-  .allIt(x < hm[pos + it])
+proc isLow(hm: HeightMap, pos: Pos, x: uint16): bool =
+  [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)] -->
+    all(x < hm[pos + it])
 
 proc riskLevel*(hm: HeightMap): int =
-  let lows = hm.pairs.toSeq
-  .filterIt(hm.isLow(it[0], it[1]))
-  .mapIt(it[1])
-  lows.sum + lows.len
+  hm.pairs --> filter(hm.isLow(it[0], it[1]))
+  .fold(0, a + it[1].int + 1)
 
-proc largestBasins*(hm: var HeightMap): int =
-  var avail = 10
+proc largestBasins*(hm: HeightMap): int =
   for (pos, x) in hm.mpairs:
-    x = [(-1,0),(0,-1),(0,1),(1,0)].mapIt(hm[pos + it]).max
-    if x <= 9:
-      x = avail
-      inc avail
+    x = uint16(pos.row * hm.len + pos.col)
 
-  var changed = true
-  while changed:
-    changed = false
+  var repeat = true
+  while repeat:
+    repeat = false
     for (pos, x) in hm.mpairs:
-      var m = [(-1,0),(0,-1),(0,1),(1,0)].mapIt(hm[pos + it]).max
+      let m = [(-1,0),(0,-1),(0,1),(1,0)] --> map(hm[pos + it]).max
       if x != m:
         x = m
-        changed = true
+        repeat = true
 
-  var c = hm.values.toSeq.mapIt(it).toCountTable
+  var c = hm.values --> map(int).toCountTable
   c.sort
-  c.values.toSeq[0..2].foldl(a * b, 1)
+  c.values --> take(3) --> product()
 
 
 if isMainModule:
-  var hm = "input".parseHeightMap
+  let hm = "input".parseHeightMap
   echo "Part1: ", hm.riskLevel
   echo "Part1: ", hm.largestBasins
