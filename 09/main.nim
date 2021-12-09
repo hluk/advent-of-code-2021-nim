@@ -3,55 +3,52 @@ import math
 import sequtils
 import tables
 
-type HeightMap = seq[seq[int]]
+type Pos = tuple[row: int, col: int]
+type HeightMap = TableRef[Pos, int]
 
 proc parseHeightMap*(filename: string): HeightMap =
-  var hm = filename.lines.toSeq.mapIt(9 & it.mapIt(it.ord - '0'.ord) & 9)
-  let cols = hm[0].len
-  newSeqWith[int](cols, 9) & hm & newSeqWith[int](cols, 9)
-
-proc isLow(hm: HeightMap, r, c: int): bool =
-  let x = hm[r][c]
-  [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
-  .allIt(x < hm[r+it[0]][c+it[1]])
-
-proc coords*(hm: HeightMap): seq[seq[int]] =
+  var hm = filename.lines.toSeq.mapIt(it.mapIt(it.ord - '0'.ord))
   let rows = hm.len
   let cols = hm[0].len
-  [toSeq(1..rows-2), toSeq(1..cols-2)].product
+  [toSeq(0..rows-1), toSeq(0..cols-1)].product
+  .filterIt(hm[it[0]][it[1]] != 9)
+  .mapIt(((it[0], it[1]), hm[it[0]][it[1]]))
+  .newTable
+
+proc `+`(pos: Pos, d: (int, int)): Pos =
+  (pos.row + d[0], pos.col + d[1])
+
+proc `[]`(hm: HeightMap, pos: Pos): int =
+  hm.getOrDefault(pos, 9)
+
+proc isLow(hm: HeightMap, pos: Pos, x: int): bool =
+  [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
+  .allIt(x < hm[pos + it])
 
 proc riskLevel*(hm: HeightMap): int =
-  let lows = hm.coords
+  let lows = hm.pairs.toSeq
   .filterIt(hm.isLow(it[0], it[1]))
-  .mapIt(hm[it[0]][it[1]])
+  .mapIt(it[1])
   lows.sum + lows.len
 
 proc largestBasins*(hm: var HeightMap): int =
-  let rows = hm.len
-  let cols = hm[0].len
   var avail = 10
-  for i in 0..rows.float.sqrt.int:
-    for r in 1..rows-2:
-      for c in 1..cols-2:
-        let x = hm[r][c]
-        if x == 9:
-          continue
+  for (pos, x) in hm.mpairs:
+    x = [(-1,0),(0,-1),(0,1),(1,0)].mapIt(hm[pos + it]).max
+    if x <= 9:
+      x = avail
+      inc avail
 
-        let m = max([
-          hm[r][c-1],
-          hm[r][c+1],
-          hm[r-1][c],
-          hm[r+1][c],
-        ])
+  var changed = true
+  while changed:
+    changed = false
+    for (pos, x) in hm.mpairs:
+      var m = [(-1,0),(0,-1),(0,1),(1,0)].mapIt(hm[pos + it]).max
+      if x != m:
+        x = m
+        changed = true
 
-        if m <= 9:
-          hm[r][c] = avail
-          inc avail
-        else:
-          hm[r][c] = m
-
-  var c = hm.concat.toCountTable
-  c.del(9)
+  var c = hm.values.toSeq.mapIt(it).toCountTable
   c.sort
   c.values.toSeq[0..2].foldl(a * b, 1)
 
