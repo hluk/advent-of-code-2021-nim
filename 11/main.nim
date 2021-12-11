@@ -1,20 +1,16 @@
-import zero_functional
+import algorithm
+import sequtils
 
-type Map = array[10, array[10, uint8]]
-type Pos = array[0..1, int]
+type Map = seq[seq[uint8]]
+type Pos = seq[int]
+
+const POSITIONS = product(@[toSeq(0..9), toSeq(0..9)])
 
 proc `[]`(m: var Map, pos: Pos): var uint8 =
   m[pos[0]][pos[1]]
 
-proc `[]=`(m: var Map, pos: Pos, value: uint8): void =
-  m[pos[0]][pos[1]] = value
-
 proc parseMap*(filename: string): Map =
-  filename.readLines(10).pairs --> (r, line) --> foreach(
-    line.pairs --> (c, v) --> foreach(
-      result[[r, c]] = (v.ord - '0'.ord).uint8
-    )
-  )
+  filename.lines.toSeq.mapIt(it.mapIt((it.ord - '0'.ord).uint8))
 
 proc flash(v: var uint8): bool =
   if v == 0:
@@ -26,28 +22,33 @@ proc flash(v: var uint8): bool =
     inc v
     false
 
+proc neighbors(pos: Pos): seq[Pos] =
+  let r1 = max(0, pos[0] - 1)
+  let r2 = min(9, pos[0] + 1)
+  let c1 = max(0, pos[1] - 1)
+  let c2 = min(9, pos[1] + 1)
+  product(@[toSeq(r1..r2), toSeq(c1..c2)])
+
 proc flash(m: var Map, pos: Pos): int =
   if m[pos].flash:
-    result = 1
-    let r1 = max(0, pos[0] - 1)
-    let r2 = min(9, pos[0] + 1)
-    let c1 = max(0, pos[1] - 1)
-    let c2 = min(9, pos[1] + 1)
-    (r1..r2) --> combinations(c1..c2).foreach(result += m.flash(it))
+    neighbors(pos).foldl(a + m.flash(b), 1)
+  else:
+    0
 
 proc step(m: var Map): int =
-  m.mitems --> foreach(it.mitems --> foreach(inc it))
+  for row in m.mitems:
+    for v in row.mitems:
+      inc v
 
-  0..9 --> combinations(0..9)
-  .filter(m[it] == 10)
-  .foreach(result += m.flash(it))
+  POSITIONS
+  .filterIt(m[it] == 10)
+  .foldl(a + m.flash(b), 0)
 
 proc part1*(m: var Map): int =
-  for i in 0..99:
-    result += m.step
+  toSeq(0..99).foldl(a + m.step, 0)
 
 proc allFlashed(m: Map): bool =
-  m --> all(it --> all(it == 0))
+  m.allIt(it.allIt(it == 0))
 
 proc part2*(m: var Map): int =
   while not m.allFlashed:
