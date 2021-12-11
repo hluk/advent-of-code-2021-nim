@@ -1,45 +1,53 @@
-import sequtils
 import zero_functional
 
-type Map = seq[seq[uint8]]
+type Map = array[10, array[10, uint8]]
+type Pos = array[0..1, int]
+
+proc `[]`(m: var Map, pos: Pos): var uint8 =
+  m[pos[0]][pos[1]]
+
+proc `[]=`(m: var Map, pos: Pos, value: uint8): void =
+  m[pos[0]][pos[1]] = value
 
 proc parseMap*(filename: string): Map =
-  filename.lines --> map(it --> map((it.ord - '0'.ord).uint8))
+  filename.readLines(10).pairs --> (r, line) --> foreach(
+    line.pairs --> (c, v) --> foreach(
+      result[[r, c]] = (v.ord - '0'.ord).uint8
+    )
+  )
 
-proc flash(m: var Map, r, c: int): int =
-  if r < 0 or c < 0 or r >= m.len or c >= m[r].len or m[r][c] == 0:
-    return 0
+proc flash(v: var uint8): bool =
+  if v == 0:
+    false
+  elif v >= 9:
+    v = 0
+    true
+  else:
+    inc v
+    false
 
-  inc m[r][c]
-  if m[r][c] > 9:
-    m[r][c] = 0
-    inc result
-    for (rd,cd) in [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]:
-      let r1 = r+rd
-      let c1 = c+cd
-      result += m.flash(r1, c1)
+proc flash(m: var Map, pos: Pos): int =
+  if m[pos].flash:
+    result = 1
+    let r1 = max(0, pos[0] - 1)
+    let r2 = min(9, pos[0] + 1)
+    let c1 = max(0, pos[1] - 1)
+    let c2 = min(9, pos[1] + 1)
+    (r1..r2) --> combinations(c1..c2).foreach(result += m.flash(it))
 
 proc step(m: var Map): int =
-  for (r, row) in m.pairs:
-    for (c, v) in row.pairs:
-      inc m[r][c]
+  m.mitems --> foreach(it.mitems --> foreach(inc it))
 
-  for (r, row) in m.pairs:
-    for (c, v) in row.pairs:
-      if v == 10:
-        result += m.flash(r, c)
+  0..9 --> combinations(0..9)
+  .filter(m[it] == 10)
+  .foreach(result += m.flash(it))
 
 proc part1*(m: var Map): int =
   for i in 0..99:
     result += m.step
 
 proc allFlashed(m: Map): bool =
-  for (r, row) in m.pairs:
-    for (c, v) in row.pairs:
-      if v != 0:
-        return false
-  return true
-
+  m --> all(it --> all(it == 0))
 
 proc part2*(m: var Map): int =
   while not m.allFlashed:
