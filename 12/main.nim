@@ -1,3 +1,4 @@
+import sequtils
 import strutils
 import tables
 
@@ -25,24 +26,23 @@ proc parsePaths*(filename: string): Paths =
     result.mgetOrPut(b, @[]).add(a)
     availableId += 2
 
-proc visit(p: Paths, c: Path, visited: var Visited, visitedTwice: bool): int =
-  visited.add(c)
-  for s in p.getOrDefault(c):
-    if s == END:
-      result += 1
-    elif s >= FIRST_LARGE_CAVE_ID or not visited.contains(s):
-      result += p.visit(s, visited, visitedTwice)
-    elif s != START and not visitedTwice:
-      result += p.visit(s, visited, true)
-  discard visited.pop()
+proc visit(p: Paths, visited: Visited, visitedTwice: bool): int =
+  p.getOrDefault(visited[^1]).foldl(
+    a + (
+      if b == END: 1
+      elif b >= FIRST_LARGE_CAVE_ID or not visited.contains(b):
+        p.visit(visited & b, visitedTwice)
+      elif b != START and not visitedTwice:
+        p.visit(visited & b, true)
+      else: 0
+    ), 0
+  )
 
 proc paths*(p: Paths): int =
-  var visited: Visited
-  p.visit(START, visited, true)
+  p.visit(@[START], true)
 
 proc paths2*(p: Paths): int =
-  var visited: Visited
-  p.visit(START, visited, false)
+  p.visit(@[START], false)
 
 if isMainModule:
   var p = "input".parsePaths
