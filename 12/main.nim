@@ -1,67 +1,36 @@
 import strutils
-import sets
 import tables
 
 type Paths = Table[string, seq[string]]
 type Visited = seq[string]
-type UniquePaths = HashSet[Visited]
-
-proc addPath(paths: var Paths, a: string, b: string): void =
-  if paths.hasKey(a):
-    paths[a].add(b)
-  else:
-    paths[a] = @[b]
 
 proc parsePaths*(filename: string): Paths =
   for line in filename.lines:
     let path = line.split("-")
-    result.addPath(path[0], path[1])
-    result.addPath(path[1], path[0])
+    result.mgetOrPut(path[0], @[]).add(path[1])
+    result.mgetOrPut(path[1], @[]).add(path[0])
 
 proc canVisitAgain(cave: string): bool =
   cave[0].isUpperAscii
 
-proc visit(p: Paths, c: string, visited: var Visited, paths: var UniquePaths): void =
+proc visit(p: Paths, c: string, visited: var Visited, visitedTwice: bool): int =
   visited.add(c)
-  #echo "+", c
   for s in p.getOrDefault(c):
     if s == "end":
-      #echo "++", visited
-      paths.incl(visited)
+      result += 1
     elif s.canVisitAgain or not visited.contains(s):
-      p.visit(s, visited, paths)
-  #echo "-", c
+      result += p.visit(s, visited, visitedTwice)
+    elif s != "start" and not visitedTwice:
+      result += p.visit(s, visited, true)
   discard visited.pop()
 
 proc paths*(p: Paths): int =
-  #echo p
   var visited: Visited
-  var paths: UniquePaths
-  p.visit("start", visited, paths)
-  #echo paths
-  paths.len
-
-proc visit2(p: Paths, c: string, visited: var Visited, paths: var UniquePaths, visitedTwice: string): void =
-  visited.add(c)
-  #echo "+", c
-  for s in p.getOrDefault(c):
-    if s == "end":
-      #echo "++", visited
-      paths.incl(visited)
-    elif s.canVisitAgain or not visited.contains(s):
-      p.visit2(s, visited, paths, visitedTwice)
-    elif s != "start" and visitedTwice.len == 0:
-      p.visit2(s, visited, paths, s)
-  #echo "-", c
-  discard visited.pop()
+  p.visit("start", visited, true)
 
 proc paths2*(p: Paths): int =
-  #echo p
   var visited: Visited
-  var paths: UniquePaths
-  p.visit2("start", visited, paths, "")
-  #echo paths
-  paths.len
+  p.visit("start", visited, false)
 
 if isMainModule:
   var p = "input".parsePaths
