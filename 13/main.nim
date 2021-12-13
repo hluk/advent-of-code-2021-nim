@@ -31,13 +31,13 @@ proc foldAlong(axis: char): FoldAlong =
 
 proc `$`*(dots: Dots): string =
   toSeq(0..<6).map(
-    (y) => toSeq(0..5*8-2).map(
-      (x) => (if dots.getOrDefault(y).contains(x): '#' else: '.')
+    y => toSeq(0..5*8-2).map(
+      x => ".#"[dots.getOrDefault(y).contains(x).int]
     ).join
   ).join("\n")
 
 proc parseDots(lines: string): Dots =
-  for line in lines.split('\n'):
+  for line in lines.splitLines:
     let (ok, x, y) = line.scanTuple("$i,$i")
     assert ok
     result.mgetOrPut(y, initHashSet[int]()).incl(x)
@@ -48,7 +48,7 @@ proc parseFold(line: string): Fold =
   (axis.foldAlong, value)
 
 proc parseFolds(lines: string): Folds =
-  lines.split('\n').map(parseFold)
+  lines.splitLines.map(parseFold)
 
 proc parseInput*(filename: string): (Dots, Folds) =
   let lines = filename.readFile.strip.split("\n\n", 1)
