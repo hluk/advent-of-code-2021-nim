@@ -7,9 +7,27 @@ import sets
 import sugar
 
 type Dots = Table[int, HashSet[int]]
-type FoldAlong = enum alongX, alongY
+type FoldAlong = (var Dots, int) -> void
 type Fold = tuple[along: FoldAlong, value: int]
 type Folds = seq[Fold]
+
+proc foldAlongY(dots: var Dots, atY: int): void =
+  dots.del(atY)
+  for y in dots.keys.toSeq.filterIt(it > atY):
+    let newY = 2 * atY - y
+    dots.mgetOrPut(newY, initHashSet[int]()).incl(dots[y])
+    dots.del(y)
+
+proc foldAlongX(dots: var Dots, atX: int): void =
+  for xs in dots.mvalues:
+    xs = xs.filterIt(it != atX).mapIt(
+      if it > atX: 2 * atX - it else: it
+    ).toHashSet
+
+proc foldAlong(axis: char): FoldAlong =
+  if axis == 'x': foldAlongX
+  elif axis == 'y': foldAlongY
+  else: raise newException(ValueError, "Unexpected axis: " & axis)
 
 proc `$`*(dots: Dots): string =
   toSeq(0..<6).map(
@@ -18,40 +36,27 @@ proc `$`*(dots: Dots): string =
     ).join
   ).join("\n")
 
+proc parseDots(lines: string): Dots =
+  for line in lines.split('\n'):
+    let (ok, x, y) = line.scanTuple("$i,$i")
+    assert ok
+    result.mgetOrPut(y, initHashSet[int]()).incl(x)
+
+proc parseFold(line: string): Fold =
+  let (ok, axis, value) = line.scanTuple("fold along $c=$i")
+  assert ok
+  (axis.foldAlong, value)
+
+proc parseFolds(lines: string): Folds =
+  lines.split('\n').map(parseFold)
+
 proc parseInput*(filename: string): (Dots, Folds) =
-  var readDots = true
-  for line in filename.lines:
-    if line.len == 0:
-      readDots = false
-    elif readDots:
-      let (ok, x, y) = line.scanTuple("$i,$i")
-      assert ok
-      result[0].mgetOrPut(y, initHashSet[int]()).incl(x)
-    else:
-      let (ok, alongName, value) = line.scanTuple("fold along $w=$i")
-      assert ok
-      assert alongName == "x" or alongName == "y"
-      let along = if alongName == "x": alongX else: alongY
-      result[1].add((along, value))
+  let lines = filename.readFile.strip.split("\n\n", 1)
+  (lines[0].parseDots, lines[1].parseFolds)
 
 proc foldDots*(dots: var Dots, folds: Folds): int =
   for fold in folds:
-    if fold.along == alongY:
-      dots.del(fold.value)
-      for y in dots.keys.toSeq:
-        if y > fold.value:
-          let newY = 2 * fold.value - y
-          dots.mgetOrPut(newY, initHashSet[int]()).incl(dots[y])
-          dots.del(y)
-    else:
-      for (y, xs) in dots.mpairs:
-        for x in xs.toSeq:
-          if x == fold.value:
-            xs.excl(x)
-          elif x > fold.value:
-            xs.excl(x)
-            let newX = 2 * fold.value - x
-            xs.incl(newX)
+    fold.along(dots, fold.value)
 
   dots.values.toSeq.mapIt(it.len).sum
 
