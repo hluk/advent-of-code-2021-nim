@@ -1,14 +1,15 @@
-import algorithm
 import sequtils
 import strscans
 import strutils
 import tables
 
 type PolymerTemplate = string
-type Insertions = Table[(char, char), char]
+type Key = tuple[a, b: char]
+type Insertions = Table[Key, char]
 type Counts = CountTable[char]
+type Cache = Table[(Key, int), Counts]
 
-proc parseInsertion(line: string): ((char, char), char) =
+proc parseInsertion(line: string): (Key, char) =
   let (ok, a, b, elem) = line.scanTuple("$c$c -> $c")
   assert ok
   ((a, b), elem)
@@ -20,37 +21,27 @@ proc parseInput*(filename: string): (PolymerTemplate, Insertions) =
   let lines = filename.readFile.strip.split("\n\n", 1)
   (lines[0], lines[1].parseInsertions)
 
-type Cache = Table[(char, char, int), Counts]
-
-proc steps(a: char, b: char, inserts: Insertions, cache: var Cache, steps: int): Counts =
+proc steps(k: Key, inserts: Insertions, cache: var Cache, steps: int): Counts =
   if steps == 0: return
 
-  let cacheKey = (a, b, steps)
+  let cacheKey = (k, steps)
   result = cache.getOrDefault(cacheKey)
   if result.len == 0:
-    let insert = inserts[(a, b)]
+    let insert = inserts[k]
     result.inc(insert)
-    let c1 = steps(a, insert, inserts, cache, steps - 1)
-    let c2 = steps(insert, b, inserts, cache, steps - 1)
-    for (k, v) in c1.pairs:
-      result.inc(k, v)
-    for (k, v) in c2.pairs:
-      result.inc(k, v)
+    result.merge(steps((k.a, insert), inserts, cache, steps - 1))
+    result.merge(steps((insert, k.b), inserts, cache, steps - 1))
     cache[cacheKey] = result
 
 proc stepCounts*(pt: PolymerTemplate, inserts: Insertions, steps: int): Counts =
   result = pt.toCountTable
   var cache: Cache
   for i in 0..<pt.len-1:
-    let c1 = steps(pt[i], pt[i+1], inserts, cache, steps)
-    for (k, v) in c1.pairs:
-      result.inc(k, v)
+    result.merge(steps((pt[i], pt[i+1]), inserts, cache, steps))
 
 proc steps*(pt: PolymerTemplate, inserts: Insertions, steps: int): int =
-  var counts = pt.stepCounts(inserts, steps)
-  counts.sort
-  let c = counts.values.toSeq
-  c[0] - c[^1]
+  let counts = pt.stepCounts(inserts, steps)
+  counts.largest.val - counts.smallest.val
 
 if isMainModule:
   let (pt, inserts) = "input".parseInput
