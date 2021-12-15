@@ -12,6 +12,10 @@ suite "Day 15":
     let map = "test01".parseMap
     check map.lowest == 12
 
+  test "part02":
+    let map = "test02".parseMap
+    check map.lowest == 25
+
   test "part1":
     let map = "test1".parseMap
     check map.lowest == 40

@@ -1,3 +1,4 @@
+import heapqueue
 import sequtils
 
 type Map = seq[seq[uint8]]
@@ -9,12 +10,13 @@ type Pos = tuple[x: int, y: int]
 type Risks = seq[seq[int]]
 
 const INVALID = 999999
+const VISITED = -1
 
-proc `[]`(map: Risks, pos: Pos): int =
-  if 0 <= pos.y and pos.y < map.len and 0 <= pos.x and pos.x < map[pos.y].len:
-    map[pos.y][pos.x]
-  else:
-    INVALID
+proc `[]`(risks: Risks, pos: Pos): int =
+  risks[pos.y][pos.x]
+
+proc `[]=`(risks: var Risks, pos: Pos, value: int): void =
+  risks[pos.y][pos.x] = value
 
 proc toRepeated*(tile: Map, repeat: int): RepeatedMap =
   RepeatedMap(
@@ -35,26 +37,33 @@ proc parseMap*(filename: string): Map =
     it.toSeq.mapIt:
       (it.ord - '0'.ord).uint8
 
-proc risks*(map: RepeatedMap): Risks =
-  result = newSeqWith(map.height, newSeqWith[int](map.width, INVALID))
+iterator neighbors*(map: RepeatedMap, p: Pos): Pos =
+  if 0 < p.x:
+    yield (p.x-1, p.y)
+  if p.x + 1 < map.width:
+    yield (p.x+1, p.y)
+  if 0 < p.y:
+    yield (p.x, p.y-1)
+  if p.y + 1 < map.height:
+    yield (p.x, p.y+1)
 
-  let y0 = map.height - 1
-  let x0 = map.width - 1
-  result[y0][x0] = map[(x0, y0)]
-
-  for i in 0..2:
-    for y in countdown(y0, 0):
-      for x in countdown(x0, 0):
-        let m = [
-          result[(x, y-1)],
-          result[(x-1, y)],
-          result[(x, y+1)],
-          result[(x+1, y)]
-        ].min + map[(x, y)]
-        result[y][x] = min(result[y][x], m)
+func lowest(map: RepeatedMap, start, finish: Pos): int =
+  var risks = newSeqWith(map.height, newSeqWith[int](map.width, INVALID))
+  risks[start] = 0
+  var heap = {0: start}.toHeapQueue
+  while heap[0][1] != finish:
+    let pos = heap.pop[1]
+    for pos2 in map.neighbors(pos).toSeq.filterIt(risks[it] != VISITED):
+      let risk = risks[pos] + map[pos2]
+      if risk < risks[pos2]:
+        risks[pos2] = risk
+        heap.push((risk, pos2))
+    risks[pos] = 0
+  risks[finish]
 
 proc lowest*(tile: Map, repeat: int = 1): int =
-  tile.toRepeated(repeat).risks[0][0] - tile[0][0].int
+  let m = tile.toRepeated(repeat)
+  m.lowest((0, 0), (m.width-1, m.height-1))
 
 if isMainModule:
   let map = "input".parseMap
