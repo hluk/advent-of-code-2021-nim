@@ -1,4 +1,5 @@
 import main
+import sequtils
 import strutils
 import unittest
 
@@ -15,13 +16,14 @@ suite "Day 15":
     let map = "test1".parseMap
     check map.lowest == 40
 
-  test "enlarge":
-    let map = "test1".parseMap
-    let map5 = map.enlarge 
-    check map5.len == map.len * 5
-    check map5[0].len == map[0].len * 5
-    check map5[0][10..<20].join == "2274862853"
+  test "repeated":
+    let map = "test1".parseMap.toRepeated(5)
+    check map.height == 50
+    check map.width == 50
+    check toSeq(10..<20).mapIt(map[(it,0)]).join == "2274862853"
+    check toSeq(0..<10).mapIt(map[(it,10)]).join == "2274862853"
+    check toSeq(10..<20).mapIt(map[(it,10)]).join == "3385973964"
 
   test "part2":
     let map = "test1".parseMap
-    check map.lowest2 == 315
+    check map.lowest(5) == 315

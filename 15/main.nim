@@ -1,6 +1,10 @@
 import sequtils
 
 type Map = seq[seq[uint8]]
+type RepeatedMap = object
+  tile: seq[seq[uint8]]
+  width*: int
+  height*: int
 type Pos = tuple[x: int, y: int]
 type Risks = seq[seq[int]]
 
@@ -12,17 +16,31 @@ proc `[]`(map: Risks, pos: Pos): int =
   else:
     INVALID
 
+proc toRepeated*(tile: Map, repeat: int): RepeatedMap =
+  RepeatedMap(
+    tile: tile,
+    width: tile[0].len * repeat,
+    height: tile.len * repeat
+  )
+
+proc `[]`*(map: RepeatedMap, pos: Pos): int =
+  let w = map.tile[0].len
+  let h = map.tile.len
+  let u = map.tile[pos.y mod h][pos.x mod w].int
+  let d = (pos.x div w) + (pos.y div h)
+  ((u + d - 1) mod 9) + 1
+
 proc parseMap*(filename: string): Map =
   filename.lines.toSeq.mapIt:
     it.toSeq.mapIt:
       (it.ord - '0'.ord).uint8
 
-proc risks*(map: Map): Risks =
-  result = newSeqWith(map.len, newSeqWith[int](map[0].len, INVALID))
+proc risks*(map: RepeatedMap): Risks =
+  result = newSeqWith(map.height, newSeqWith[int](map.width, INVALID))
 
-  let y0 = map.len - 1
-  let x0 = map[y0].len - 1
-  result[y0][x0] = map[y0][x0].int
+  let y0 = map.height - 1
+  let x0 = map.width - 1
+  result[y0][x0] = map[(x0, y0)]
 
   for i in 0..2:
     for y in countdown(y0, 0):
@@ -32,24 +50,13 @@ proc risks*(map: Map): Risks =
           result[(x-1, y)],
           result[(x, y+1)],
           result[(x+1, y)]
-        ].min + map[y][x].int
+        ].min + map[(x, y)]
         result[y][x] = min(result[y][x], m)
 
-proc lowest*(map: Map): int =
-  map.risks[0][0] - map[0][0].int
-
-proc enlarge*(tile: Map, rep: int = 5): Map =
-  result = newSeqWith(tile.len * rep, newSeq[uint8](tile[0].len * rep))
-  for (y, row) in result.mpairs:
-    for (x, v) in row.mpairs:
-      let u = tile[y mod tile.len][x mod tile[0].len]
-      let d = (x div tile[0].len) + (y div tile.len)
-      v = ((u + d.uint8 - 1) mod 9) + 1
-
-proc lowest2*(tile: Map): int =
-  tile.enlarge.lowest
+proc lowest*(tile: Map, repeat: int = 1): int =
+  tile.toRepeated(repeat).risks[0][0] - tile[0][0].int
 
 if isMainModule:
   let map = "input".parseMap
   echo "Part1: ", map.lowest
-  echo "Part2: ", map.lowest2
+  echo "Part2: ", map.lowest(5)
