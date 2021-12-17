@@ -1,6 +1,8 @@
+import sequtils
 import strscans
 
 type Area = tuple[x1, x2, y1, y2: int]
+type Velocity = tuple[x, y: int]
 
 proc parseTarget*(filename: string): Area =
   let (ok,x1,x2,y1,y2) = filename.readLines(1)[0]
@@ -8,38 +10,37 @@ proc parseTarget*(filename: string): Area =
   assert ok
   (x1, x2, y1, y2)
 
-proc reach(t: Area, vx0, vy0: int, maxYTotal: int): (bool, int) =
-  var vx = vx0
-  var vy = vy0
+proc reach(target: Area, v0: Velocity): (bool, int) =
+  var v = v0
   var x, y: int
-  var maxY = 0
+
   while true:
-    x += vx
-    y += vy
-    maxY = max(maxY, y)
-    if t.x1 <= x and x <= t.x2 and t.y1 <= y and y <= t.y2:
+    x += v.x
+    y += v.y
+
+    if target.x1 <= x and x <= target.x2 and target.y1 <= y and y <= target.y2:
+      let maxY = v0.y * (v0.y + 1) div 2
       return (true, maxY)
-    if x > t.x2 or y <= t.y1 or (vx <= 0 and x < t.x1):
+
+    if x > target.x2 or y <= target.y1 or (v.x <= 0 and x < target.x1):
       return (false, 0)
-    if vy <= 0 and maxY < maxYTotal:
-      return (false, 0)
-    if vx > 0:
-      dec vx
-    dec vy
+
+    if v.x > 0: dec v.x
+    dec v.y
+
+iterator velocities(target: Area): Velocity =
+  for x in 1..target.x2:
+    for y in countdown(100, target.y1):
+      yield (x, y)
 
 proc part1*(target: Area): int =
-  for x in 1..1000:
-    for y in -1000..1000:
-      let (ok, maxY) = target.reach(x, y, result)
-      if ok and maxY > result:
-        result = maxY
+  for v in velocities(target):
+    let (ok, y) = target.reach(v)
+    if ok:
+      return y
 
 proc part2*(target: Area): int =
-  for x in 1..1000:
-    for y in -1000..1000:
-      let (ok, _) = target.reach(x, y, int.low)
-      if ok:
-        inc result
+  velocities(target).countIt(target.reach(it)[0])
 
 if isMainModule:
   let target = "input".parseTarget
