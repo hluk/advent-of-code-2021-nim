@@ -11,34 +11,30 @@ proc parseTarget*(filename: string): Area =
   assert ok
   (x1, x2, y1, y2)
 
+proc timeTo(x: int, v: int, s: float): int =
+  let b: float = v.float - 0.5
+  let c: float = v.float - x.float
+  let t = b + s * sqrt(b^2 + 2*c)
+  t.ceil.int
+
 proc reach(target: Area, v0: Velocity): (bool, int) =
-  # Calculate initial time when X is in the target range.
-  let b: float = v0.x.float - 0.5
-  let c: float = v0.x.float - target.x1.float
-  let txx = b - sqrt(b^2 + 2*c)
-  let tx = txx.ceil.int
+  # Calculate initial time when X and Y is in the target range.
+  let tx = timeTo(target.x1, v0.x, -1)
+  let ty = timeTo(target.y2, v0.y, 1)
 
-  var y = (2 * v0.y - tx) * (tx + 1) div 2
-  var x = (2 * v0.x - tx) * (tx + 1) div 2
-  var v = (x: v0.x - tx, y: v0.y - tx)
-  assert x >= target.x1
+  let t = max(tx, ty)
+  let y = (2 * v0.y - t) * (t + 1) div 2
+  let tx0 = min(v0.x, t)
+  let x = (2 * v0.x - tx0) * (tx0 + 1) div 2
 
-  while true:
-    if x > target.x2 or y < target.y1:
-      return (false, 0)
+  if x > target.x2 or y < target.y1:
+    return (false, 0)
 
-    if y <= target.y2:
-      let maxY = v0.y * (v0.y + 1) div 2
-      return (true, maxY)
-
-    if v.x > 0: dec v.x
-    dec v.y
-
-    x += v.x
-    y += v.y
+  let maxY = v0.y * (v0.y + 1) div 2
+  return (true, maxY)
 
 iterator velocities(target: Area): Velocity =
-  # The first x velocity time that can reach the target.
+  # The smallest x velocity time that can reach the target.
   let minX = sqrt(0.25 + 2 * target.x1.float) - 0.5
   for x in minX.ceil.int..target.x2:
     for y in countdown(100, target.y1):
