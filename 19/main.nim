@@ -63,9 +63,8 @@ proc findRelativePosRot(a: Scanner, b: Scanner): (bool, Pos, Rot) =
   for r in rotations():
     var diffs: CountTable[Pos]
     for p1 in a:
-      for p2x in b:
-        let p2 = p2x.rotated(r)
-        let d = p1 - p2
+      for p2 in b:
+        let d = p1 - p2.rotated(r)
         diffs.inc(d)
         if diffs[d] == MIN_BEACON_OVERLAP:
           return (true, d, r)
@@ -89,7 +88,7 @@ proc findPath(relations: seq[Table[int, (Pos, Rot)]], j: int, path: var seq[int]
 
   return false
 
-proc part1*(scanners: Scanners): int =
+proc solution*(scanners: Scanners): (int, int) =
   let l = scanners.len
   var relations = newSeqWith(l, initTable[int, (Pos, Rot)]())
   for i in 0..<l:
@@ -107,43 +106,20 @@ proc part1*(scanners: Scanners): int =
     discard relations.findPath(j, paths[j])
 
   var s = scanners
+  var origins = newSeqWith[Pos](l, (0,0,0))
   for j in 1..<l:
     let path = paths[j]
     for i in 0..path.len-2:
       let (p, r) = relations[path[i]][path[i+1]]
       s[j].applyIt(it.rotated(r) + p)
+      origins[j] = origins[j].rotated(r) + p
 
-  s.concat.toHashSet.len
-
-proc part2*(scanners: Scanners): int =
-  let l = scanners.len
-  var relations = newSeqWith(l, initTable[int, (Pos, Rot)]())
-  for i in 0..<l:
-    let a = scanners[i]
-    for j in 1..<l:
-      if i == j:
-        continue
-      let b = scanners[j]
-      var (found, p, r) = findRelativePosRot(a, b)
-      if found:
-        relations[j][i] = (p, r)
-
-  var paths = newSeqWith(l, newSeq[int]())
-  for j in 1..<l:
-    discard relations.findPath(j, paths[j])
-
-  var s = newSeqWith(l, newSeqWith[Pos](1, (0,0,0)))
-  for j in 1..<l:
-    let path = paths[j]
-    for i in 0..path.len-2:
-      let (p, r) = relations[path[i]][path[i+1]]
-      s[j].applyIt(it.rotated(r) + p)
+  result[0] = s.concat.toHashSet.len
 
   for i in 0..<l:
     for j in i+1..<l:
-      result = max(result, manhattan(s[i][0], s[j][0]))
+      result[1] = max(result[1], manhattan(origins[i], origins[j]))
 
 if isMainModule:
   let scanners = "input".parseScanners
-  echo "Part1: ", scanners.part1
-  echo "Part2: ", scanners.part2
+  echo scanners.solution
