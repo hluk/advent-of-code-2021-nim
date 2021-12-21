@@ -2,14 +2,24 @@ import sequtils
 import strscans
 import tables
 
-type Pos = int
-type Cache = Table[(int, int, int, int, int, int, int), (int64, int64)]
+type
+  Pos = uint8
+  Player = tuple
+    pos: Pos
+    score: uint8
+  Wins = (int64, int64)
+  Cache = Table[(Player, Player), Wins]
+
+proc swapped(a: Wins): Wins = (a[1], a[0])
+
+proc `+=`(a: var Wins, b: Wins): void =
+  a = (a[0] + b[0], a[1] + b[1])
 
 proc parsePlayer*(line: string, player: int): Pos =
   let (ok, n, i) = line.scanTuple("Player $i starting position: $i")
   assert ok
   assert n == player
-  i
+  i.uint8
 
 proc parseInput*(filename: string): (Pos, Pos) =
   let lines = filename.lines.toSeq
@@ -18,9 +28,9 @@ proc parseInput*(filename: string): (Pos, Pos) =
     lines[1].parsePlayer(2),
   )
 
-proc part1*(p01, p02: int): (int, int) =
-  var p1 = p01 - 1
-  var p2 = p02 - 1
+proc part1*(p01, p02: Pos): (int, int) =
+  var p1 = p01.int - 1
+  var p2 = p02.int - 1
   var s1, s2, roll = 0
   while true:
     let r1 = (roll * 9 + 3) mod 100 + 3
@@ -40,42 +50,32 @@ proc part1*(p01, p02: int): (int, int) =
 
   (min(s1, s2), roll*3)
 
-proc roll(cache: var Cache, p, s: array[2, int], w: var array[2, int64], i: int = 0, j: int = 0, r: int = 1): void =
-  let key = (p[0], p[1], s[0], s[1], i, j, r)
-  if key in cache:
-    let wd = cache[key]
-    w[0] += wd[0]
-    w[1] += wd[1]
-    return
+proc roll(cache: var Cache, p1, p2: Player, i: uint8 = 0, r: uint8 = 1): Wins =
+  if i == 0 and r == 1 and (p1, p2) in cache:
+    return cache[(p1, p2)]
 
-  let w0 = w
+  if r < 3:
+    result += cache.roll(p1, p2, i, r+1)
 
-  var px = p
-  px[i] += r
-  if j == 2:
-    px[i] = px[i] mod 10
-    var sx = s
-    sx[i] += px[i] + 1
-    if sx[i] >= 21:
-      inc w[i]
-    else:
-      cache.roll(px, sx, w, (i+1) mod 2)
+  if i < 2:
+    let p = (p1.pos + r, p1.score)
+    result += cache.roll(p, p2, i+1)
   else:
-    cache.roll(px, s, w, i, j+1)
+    let newPos = (p1.pos + r) mod 10
+    let p: Player = (newPos, p1.score + newPos + 1)
+    if p.score >= 21:
+      inc result[0]
+    else:
+      result += cache.roll(p2, p).swapped
 
-  if r != 3:
-    cache.roll(p, s, w, i, j, r+1)
+  if i == 0 and r == 1:
+    cache[(p1, p2)] = result
 
-  if w0 != w:
-    cache[key] = (w[0] - w0[0], w[1] - w0[1])
-
-proc part2*(p01, p02: int): (int64, int64) =
-  let p = [p01 - 1, p02 - 1]
-  let s = [0, 0]
-  var w = [0i64, 0i64]
+proc part2*(p01, p02: Pos): Wins =
   var cache: Cache
-  cache.roll(p, s, w)
-  (w[0], w[1])
+  let p1 = (p01 - 1, 0u8)
+  let p2 = (p02 - 1, 0u8)
+  cache.roll(p1, p2)
 
 if isMainModule:
   let (p1, p2) = "input".parseInput

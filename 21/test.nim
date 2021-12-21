@@ -4,7 +4,7 @@ import unittest
 suite "Day 21":
   test "parseInput":
     var (p1, p2) = "test1".parseInput
-    check (p1, p2) == (4, 8)
+    check (p1, p2) == (4u8, 8u8)
 
   test "part1":
     var (p1, p2) = "test1".parseInput
