@@ -8,14 +8,6 @@ type
   OpRanges* = seq[OpRange]
   Ranges = seq[Range]
 
-proc contains(l: Range, r: Range): bool =
-  l.x.b >= r.x.a and
-  l.y.b >= r.y.a and
-  l.z.b >= r.z.a and
-  l.x.a <= r.x.b and
-  l.y.a <= r.y.b and
-  l.z.a <= r.z.b
-
 proc empty(r: Range): bool =
   r.x.b < r.x.a or
   r.y.b < r.y.a or
@@ -36,11 +28,8 @@ proc intersection(l, r: Range): Range =
     (max(l.z.a, r.z.a), min(l.z.b, r.z.b)),
   )
 
-iterator intersections(rs: Ranges, r: Range): Range =
-  for rx in rs:
-    let ri = rx.intersection(r)
-    if not ri.empty:
-      yield ri
+proc intersections(rs: Ranges, r: Range): Ranges =
+  rs.mapIt(it.intersection(r)).filterIt(not it.empty)
 
 proc parseCubes*(line: string): OpRange =
   let (ok, op, x1, x2, y1, y2, z1, z2) = line.scanTuple("$w x=$i..$i,y=$i..$i,z=$i..$i")
@@ -51,36 +40,32 @@ proc parseCubes*(line: string): OpRange =
 proc parseInput*(filename: string): OpRanges =
   filename.lines.toSeq.map(parseCubes)
 
-proc part1*(ops: OpRanges): int =
-  for x in -50..50:
-    for y in -50..50:
-      for z in -50..50:
-        let r: Range = ((x,x), (y,y), (z,z))
-        var enabled = false
-        for (op, range) in ops:
-          if op != enabled and range.contains(r):
-            enabled = op
-        result += enabled.ord
-
-proc part2*(ops: OpRanges): int =
+proc rangesOnOff*(ops: OpRanges): (Ranges, Ranges) =
   var rOn: Ranges
   var rOff: Ranges
   for (op, range) in ops:
     if op:
-      let rOff2 = rOn.intersections(range).toSeq
-      let rOn2 = rOff.intersections(range).toSeq
-      result += range.count - rOff2.count + rOn2.count
+      let rOff2 = rOn.intersections(range)
+      let rOn2 = rOff.intersections(range)
       rOn.add(range)
       rOn &= rOn2
       rOff &= rOff2
     else:
-      let rOff2 = rOn.intersections(range).toSeq
-      let rOn2 = rOff.intersections(range).toSeq
-      result -= rOff2.count - rOn2.count
+      let rOff2 = rOn.intersections(range)
+      let rOn2 = rOff.intersections(range)
       rOff &= rOff2
       rOn &= rOn2
+  (rOn, rOff)
+
+proc limited*(ops: OpRanges): OpRanges =
+  let limit: Range = ((-50,50),(-50,50),(-50,50))
+  ops.mapIt((it[0], it[1].intersection(limit))).filterIt(not it[1].empty)
+
+proc count*(ops: OpRanges): int =
+  let (rOn, rOff) = ops.rangesOnOff
+  rOn.count - rOff.count
 
 if isMainModule:
   let ops = "input".parseInput
-  #echo "Part1: ", ops.part1
-  echo "Part2: ", ops.part2
+  echo "Part1: ", ops.limited.count
+  echo "Part2: ", ops.count
