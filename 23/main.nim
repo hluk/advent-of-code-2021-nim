@@ -10,37 +10,27 @@ type
   Home = seq[uint16]
   Pods = array[4, Home]
   Hall = array[7, uint16]
-  State = tuple
+  State = object
     steps: int
     pods: Pods
     hall: Hall
 
 const
-  EMPTY* = 0u16
   A* = 1u16
   B* = 10u16
   C* = 100u16
   D* = 1000u16
-  FINAL: Pods = [@[A, A], @[B, B], @[C, C], @[D, D]]
-  FINAL2: Pods = [@[A, A, A, A], @[B, B, B, B], @[C, C, C, C], @[D, D, D, D]]
-  STEPS = [
-    (
+  STEPS = [[
       @[(1,2),(0,3)],
-      @[(2,2),(3,4),(4,6),(5,8),(6,9)],
-    ),
-    (
       @[(2,2),(1,4),(0,5)],
-      @[(3,2),(4,4),(5,6),(6,7)],
-    ),
-    (
       @[(3,2),(2,4),(1,6),(0,7)],
-      @[(4,2),(5,4),(6,5)],
-    ),
-    (
       @[(4,2),(3,4),(2,6),(1,8),(0,9)],
+    ], [
+      @[(2,2),(3,4),(4,6),(5,8),(6,9)],
+      @[(3,2),(4,4),(5,6),(6,7)],
+      @[(4,2),(5,4),(6,5)],
       @[(5,2),(6,3)],
-    )
-  ]
+  ]]
 
 proc `<`(x, y: State): bool =
   x.steps < y.steps
@@ -112,73 +102,64 @@ proc moveFromHallIndex(home: Home, expected: uint16): int =
 
   return -1
 
-proc moveFromHall(s: State): State =
+proc moveFromHall(s: var State): void =
   for i, expected in [A, B, C, D]:
     let j = s.pods[i].moveFromHallIndex(expected)
     if j == -1:
       continue
 
-    for (k,steps) in STEPS[i][0]:
-      let h = s.hall[k]
-      if h == expected:
-        return moveFromHall (
-          steps: s.steps + h.int * (j + steps),
-          pods: s.pods.with(i, j, h),
-          hall: s.hall.with(k, 0)
-        )
-      if h != 0: break
+    for steps_lr in STEPS:
+      for (k,steps) in steps_lr[i]:
+        let h = s.hall[k]
+        if h == expected:
+          s.steps = s.steps + h.int * (j + steps)
+          s.pods = s.pods.with(i, j, h)
+          s.hall = s.hall.with(k, 0)
+          s.moveFromHall
+          return
+        if h != 0: break
 
-    for (k,steps) in STEPS[i][1]:
-      let h = s.hall[k]
-      if h == expected:
-        return moveFromHall (
-          steps: s.steps + h.int * (j + steps),
-          pods: s.pods.with(i, j, h),
-          hall: s.hall.with(k, 0)
-        )
-      if h != 0: break
-  s
+iterator moveToHall(s: State): State =
+  for i, expected in [A, B, C, D]:
+    let j = s.pods[i].moveToHallIndex(expected)
+    if j == -1:
+      continue
 
-proc solve*(pods: Pods, final: Pods): int =
+    var v = s.pods[i][j]
+    for steps_lr in STEPS:
+      for (k,steps) in steps_lr[i]:
+        if s.hall[k] != 0: break
+        var state = State(
+          steps: s.steps + v.int * (j + steps),
+          pods: s.pods.with(i, j, 0),
+          hall: s.hall.with(k, v),
+        )
+        state.moveFromHall
+        yield state
+
+proc isFinished(s: State): bool =
+  s.pods[0].allIt(it == A) and
+  s.pods[1].allIt(it == B) and
+  s.pods[2].allIt(it == C) and
+  s.pods[3].allIt(it == D)
+
+proc solve*(pods: Pods): int =
   var q: HeapQueue[State]
-  q.push((0, pods, [EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY]))
+  q.push(State(pods: pods))
 
   var visited: HashSet[(Pods, Hall)]
 
   while q.len != 0:
     let s = q.pop
-    assert s.steps <= 44169
 
     if visited.containsOrIncl (s.pods, s.hall):
       continue
 
-    if s.pods == final:
+    if s.isFinished:
       return s.steps
 
-    for i, expected in [A, B, C, D]:
-      let j = s.pods[i].moveToHallIndex(expected)
-      if j == -1:
-        assert s.pods[i].allIt(it == 0 or it == expected)
-        continue
-
-      var v = s.pods[i][j]
-      assert v != 0
-      for (k,steps) in STEPS[i][0]:
-        if s.hall[k] != 0: break
-        let state = moveFromHall (
-          steps: s.steps + v.int * (j + steps),
-          pods: s.pods.with(i, j, 0),
-          hall: s.hall.with(k, v),
-        )
-        q.push(state)
-      for (k,steps) in STEPS[i][1]:
-        if s.hall[k] != 0: break
-        let state = moveFromHall (
-          steps: s.steps + v.int * (j + steps),
-          pods: s.pods.with(i, j, 0),
-          hall: s.hall.with(k, v),
-        )
-        q.push(state)
+    for state in s.moveToHall:
+      q.push(state)
 
 proc unfolded*(p: Pods): Pods =
   [
@@ -189,10 +170,10 @@ proc unfolded*(p: Pods): Pods =
   ]
 
 proc part1*(pods: Pods): int =
-  pods.solve(FINAL)
+  pods.solve
 
 proc part2*(pods: Pods): int =
-  pods.unfolded.solve(FINAL2)
+  pods.unfolded.solve
 
 if isMainModule:
   let pods = "input".parsePods
